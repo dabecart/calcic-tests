@@ -1,4 +1,4 @@
-# `calcic-tests`
+# calcic-tests
 
 *Written by @dabecart, 2026*
 

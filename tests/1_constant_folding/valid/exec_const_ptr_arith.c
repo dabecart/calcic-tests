@@ -2,7 +2,6 @@
 
 /* Address constants and offsets */
 int arr[10];
-int *parr = arr;
 long diff = (arr + 5) - arr;  /* 5 */
 int is_null = (void*)0 == 0;  /* 1 */
 
