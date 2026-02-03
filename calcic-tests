@@ -24,10 +24,10 @@ def executeProgram(expectedReturnCode: int, testPath: str):
         returnCode = subprocess.run([out_exe], capture_output=True)
         
         if returnCode.returncode == expectedReturnCode:
-            print(f"[PASS] {testPath}: Program returned {returnCode.returncode} as expected.")
+            print(f"[\033[92mPASS\033[0m] {testPath}: Program returned {returnCode.returncode} as expected.")
             results["passed"] += 1
         else:
-            print(f"[FAIL] {testPath}: Expected {expectedReturnCode}, but got {returnCode.returncode}.")
+            print(f"[\033[91mFAIL\033[0m] {testPath}: Expected {expectedReturnCode}, but got {returnCode.returncode}.")
             results["failed"] += 1
     finally:
         # Cleanup generated executable.
@@ -47,10 +47,10 @@ def runTests(compiler_path, tests_dir):
                 res = subprocess.run([compiler_path, path, "-o", out_exe], capture_output=True)
                 
                 if res.returncode != 0:
-                    print(f"[PASS] {testFilePath}: Compiler correctly rejected invalid program.")
+                    print(f"[\033[92mPASS\033[0m] {testFilePath}: Compiler correctly rejected invalid program.")
                     results["passed"] += 1
                 else:
-                    print(f"[FAIL] {testFilePath}: Compiler accepted an invalid program (returned 0).")
+                    print(f"[\033[91mFAIL\033[0m] {testFilePath}: Compiler accepted an invalid program (returned 0).")
                     results["failed"] += 1
                     if os.path.exists(out_exe):
                         os.remove(out_exe)
@@ -72,7 +72,7 @@ def runTests(compiler_path, tests_dir):
                 compileCFile = subprocess.run([compiler_path, path, "-o", out_exe], capture_output=True)
                 
                 if compileCFile.returncode != 0:
-                    print(f"[FAIL] {testFilePath}: Failed to compile valid program.")
+                    print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to compile valid program.")
                     results["failed"] += 1
                     continue
 
@@ -108,14 +108,14 @@ def runTests(compiler_path, tests_dir):
                 # Compile with calcic the client.
                 compileCalcic = subprocess.run([compiler_path, clientPath, "-S", "-o", "client.s"], capture_output=True)
                 if compileCalcic.returncode != 0:
-                    print(f"[FAIL] {clientPath}: Failed to compile valid program.")
+                    print(f"[\033[91mFAIL\033[0m] {clientPath}: Failed to compile valid program.")
                     results["failed"] += 1
                     continue
 
                 # Compile with gcc the server.
                 compileGCC = subprocess.run(["gcc", serverPath, "-S", "-o", "server.s"], capture_output=True)
                 if compileGCC.returncode != 0:
-                    print(f"[FAIL] {serverPath}: Failed to compile valid program.")
+                    print(f"[\033[91mFAIL\033[0m] {serverPath}: Failed to compile valid program.")
                     results["failed"] += 1
                     os.remove("client.s")
                     continue
@@ -123,7 +123,7 @@ def runTests(compiler_path, tests_dir):
                 # Link both.
                 linkServerAndClient = subprocess.run(["gcc", "client.s", "server.s", "-o", out_exe], capture_output=True)
                 if linkServerAndClient.returncode != 0:
-                    print(f"[FAIL] {testFilePath}: Failed to compile valid program.")
+                    print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to compile valid program.")
                     results["failed"] += 1
                     os.remove("server.s")
                     os.remove("client.s")
@@ -137,14 +137,14 @@ def runTests(compiler_path, tests_dir):
                 # Compile with calcic the server.
                 compileCalcic = subprocess.run([compiler_path, serverPath, "-S", "-o", "server.s"], capture_output=True)
                 if compileCalcic.returncode != 0:
-                    print(f"[FAIL] {serverPath}: Failed to compile valid program.")
+                    print(f"[\033[91mFAIL\033[0m] {serverPath}: Failed to compile valid program.")
                     results["failed"] += 1
                     continue
 
                 # Compile with gcc the server.
                 compileGCC = subprocess.run(["gcc", clientPath, "-S", "-o", "client.s"], capture_output=True)
                 if compileGCC.returncode != 0:
-                    print(f"[FAIL] {clientPath}: Failed to compile valid program.")
+                    print(f"[\033[91mFAIL\033[0m] {clientPath}: Failed to compile valid program.")
                     results["failed"] += 1
                     os.remove("server.s")
                     continue
@@ -152,7 +152,7 @@ def runTests(compiler_path, tests_dir):
                 # Link both.
                 linkServerAndClient = subprocess.run(["gcc", "client.s", "server.s", "-o", out_exe], capture_output=True)
                 if linkServerAndClient.returncode != 0:
-                    print(f"[FAIL] {testFilePath}: Failed to compile valid program.")
+                    print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to compile valid program.")
                     results["failed"] += 1
                     os.remove("server.s")
                     os.remove("client.s")

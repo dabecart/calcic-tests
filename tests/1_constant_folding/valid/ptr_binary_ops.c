@@ -9,7 +9,7 @@ int arr[10];
 int *base = arr;
 
 /* 1. Pointer Subtraction (Ptr - Ptr) -> Integer Constant */
-long diff_1 = &arr[5] - &arr[2];        /* 3 */
+long byte_diff_1 = &arr[5] - &arr[2];        /* 3 */
 long diff_2 = &arr[0] - &arr[0];        /* 0 */
 long diff_3 = (arr + 8) - (arr + 1);    /* 7 */
 
@@ -26,7 +26,7 @@ int eq_2 = &arr[0] != &arr[1];          /* 1 */
 int eq_3 = (arr + 5) == (arr + 4);      /* 0 */
 
 int main() {
-    if (diff_1 != 3) return 1;
+    if (byte_diff_1 != 3) return 1;
     if (diff_2 != 0) return 2;
     if (diff_3 != 7) return 3;
     
