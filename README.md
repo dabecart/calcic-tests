@@ -1,4 +1,4 @@
-# `calcic-tests`
+# calcic-tests
 
 *Written by @dabecart, 2026*
 
@@ -10,12 +10,17 @@ and *invalid*. As the name implies, the *invalid* tests are made to trigger comp
 *valid* tests are expected to compile and must generate a return code specified at the top of the 
 file containing the `main()` function.
 
-## `constant_folding`
+## 0: `float`
+
+Implement the `float` type. It is similar to the `double` type but it requires special instructions
+in the assembler stage.
+
+## 1: `constant_folding`
 
 Check the expressions evaluated during compilation, for example, for the initial value of global 
-storage variables. 
+storage variables.
 
-## `const`
+## 2: `const`
 
 This is a type qualifier. There is a distinction between const types and const pointers that has to 
 be taken into account.

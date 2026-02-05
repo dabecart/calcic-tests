@@ -1,0 +1,234 @@
+#!/bin/python3
+
+import argparse
+import os
+import subprocess
+import re
+import sys
+
+out_exe = "./test_prog.out"
+
+def getExpectedExitCode(filePath):
+    # Parses the 'Exit code: x' line from the top of the .c file.
+    with open(filePath, 'r') as f:
+        firstLine = f.readline()
+        match = re.search(r'Exit code:\s*(\d+)', firstLine)
+        if match:
+            return int(match.group(1))
+    return None
+
+def executeProgram(expectedReturnCode: int, testPath: str) -> bool:
+    ret = False
+    try:
+        returnCode = subprocess.run([out_exe], capture_output=True)
+        
+        if returnCode.returncode == expectedReturnCode:
+            print(f"[\033[92mPASS\033[0m] {testPath}: Program returned {returnCode.returncode} as expected.")
+            ret = True
+        else:
+            print(f"[\033[91mFAIL\033[0m] {testPath}: Expected {expectedReturnCode}, but got {returnCode.returncode}.")
+    finally:
+        # Cleanup generated executable.
+        if os.path.exists(out_exe):
+            os.remove(out_exe)
+    return ret
+
+def getInnerTestsFolder(inputDir) -> tuple[str|None, str|None]:
+    validDir = os.path.join(inputDir, 'valid')
+    invalidDir = os.path.join(inputDir, 'invalid')
+
+    return (validDir if os.path.exists(validDir) else None, 
+            invalidDir if os.path.exists(invalidDir) else None)
+
+def runTestsFromInputRoute(compilerPath, inputFolder):
+    validDir, invalidDir = getInnerTestsFolder(inputFolder)
+
+    if validDir and invalidDir:
+        # Running a folder with the valid and invalid folders.
+        results = runTestFolder(compilerPath, validDir, invalidDir)
+
+    elif not validDir and not invalidDir:
+        # Running a folder containing the subtests. Iterate over the inner folders.
+        results = dict(passed = 0, failed = 0, skipped = 0)
+        execCount = 0
+        for innerName in os.listdir(inputFolder):
+            innerPath = os.path.join(inputFolder, innerName)
+            if not os.path.isdir(innerPath):
+                continue
+
+            validDir, invalidDir = getInnerTestsFolder(innerPath)
+            if not validDir or not invalidDir:
+                continue
+
+            innerResults = runTestFolder(compilerPath, validDir, invalidDir)
+            results['passed'] += innerResults['passed']
+            results['failed'] += innerResults['failed']
+            results['skipped'] += innerResults['skipped']
+            execCount += 1
+
+        if execCount == 0:
+            print(f"Error: Input test folder is invalid")
+            sys.exit(2)
+
+    else:
+        print(f"Error: Input test folder is invalid")
+        sys.exit(1)
+
+    print(f"Summary: {results['passed']} passed, {results['failed']} failed, {results['skipped']} skipped.")
+    retCode = (results["failed"] + results['skipped']) > 0
+
+    print("\n-----------------------")
+    print("OK" if retCode == 0 else "ERROR")
+
+    sys.exit(retCode)
+
+def runTestFolder(compilerPath: str, validDir: str, invalidDir: str) -> dict[str, int]:
+    results = dict(passed = 0, failed = 0, skipped = 0)
+
+    # Test invalid programs (should fail compilation).
+    print(f"--- Running Invalid Tests ---")
+    for testFilePath in os.listdir(invalidDir):
+        if testFilePath.endswith('.c'):
+            path = os.path.join(invalidDir, testFilePath)
+            res = subprocess.run([compilerPath, path, "-o", out_exe], capture_output=True)
+            
+            if res.returncode != 0:
+                print(f"[\033[92mPASS\033[0m] {testFilePath}: Compiler correctly rejected invalid program.")
+                results["passed"] += 1
+            else:
+                print(f"[\033[91mFAIL\033[0m] {testFilePath}: Compiler accepted an invalid program (returned 0).")
+                results["failed"] += 1
+                if os.path.exists(out_exe):
+                    os.remove(out_exe)
+
+    # Test valid programs (compile and run).
+    print(f"\n--- Running Valid Tests ---")
+    for testFilePath in os.listdir(validDir):
+        if testFilePath.endswith('.c'):
+            path = os.path.join(validDir, testFilePath)
+            expectedReturnCode = getExpectedExitCode(path)
+            
+            if expectedReturnCode is None:
+                print(f"[\033[93mSKIP\033[0m] {testFilePath}: No 'Exit code: x' header found.")
+                results["skipped"] += 1
+                continue
+
+            # Compile.
+            compileCFile = subprocess.run([compilerPath, path, "-o", out_exe], capture_output=True)
+            
+            if compileCFile.returncode != 0:
+                print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to compile valid program.")
+                results["failed"] += 1
+                continue
+
+            # Execute generated program.
+            executeProgram(expectedReturnCode, testFilePath)
+
+        elif os.path.isdir(folderPath := os.path.join(validDir, testFilePath)):
+            serverPath = None
+            clientPath = None
+            expectedReturnCode = None
+            for file in os.listdir(folderPath):
+                if file.endswith("client.c"):
+                    clientPath = os.path.join(folderPath, file)
+                    expectedReturnCode = getExpectedExitCode(clientPath)
+                elif file.endswith("server.c"):
+                    serverPath = os.path.join(folderPath, file)
+
+            if serverPath is None:
+                print(f"[SKIP] {testFilePath}: No server file found.")
+                results["skipped"] += 1
+                continue
+
+            if clientPath is None:
+                print(f"[SKIP] {testFilePath}: No client file found.")
+                results["skipped"] += 1
+                continue
+
+            if expectedReturnCode is None:
+                print(f"[SKIP] {testFilePath}: No 'Exit code: x' header found.")
+                results["skipped"] += 1
+                continue
+
+            # Compile with calcic the client.
+            compileCalcic = subprocess.run([compilerPath, clientPath, "-S", "-o", "client.s"], capture_output=True)
+            if compileCalcic.returncode != 0:
+                print(f"[\033[91mFAIL\033[0m] {clientPath}: Failed to compile valid program.")
+                results["failed"] += 1
+                continue
+
+            # Compile with gcc the server.
+            compileGCC = subprocess.run(["gcc", serverPath, "-S", "-o", "server.s"], capture_output=True)
+            if compileGCC.returncode != 0:
+                print(f"[\033[91mFAIL\033[0m] {serverPath}: Failed to compile valid program.")
+                results["failed"] += 1
+                os.remove("client.s")
+                continue
+
+            # Link both.
+            linkServerAndClient = subprocess.run(["gcc", "client.s", "server.s", "-o", out_exe], capture_output=True)
+            if linkServerAndClient.returncode != 0:
+                print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to compile valid program.")
+                results["failed"] += 1
+                os.remove("server.s")
+                os.remove("client.s")
+                continue
+
+            # Execute generated program.
+            goodExecution = executeProgram(expectedReturnCode, testFilePath + " as client")
+            if goodExecution:
+                results["passed"] += 1
+            else:
+                results["failed"] += 1
+            
+            os.remove("server.s")
+            os.remove("client.s")
+
+            # Compile with calcic the server.
+            compileCalcic = subprocess.run([compilerPath, serverPath, "-S", "-o", "server.s"], capture_output=True)
+            if compileCalcic.returncode != 0:
+                print(f"[\033[91mFAIL\033[0m] {serverPath}: Failed to compile valid program.")
+                results["failed"] += 1
+                continue
+
+            # Compile with gcc the server.
+            compileGCC = subprocess.run(["gcc", clientPath, "-S", "-o", "client.s"], capture_output=True)
+            if compileGCC.returncode != 0:
+                print(f"[\033[91mFAIL\033[0m] {clientPath}: Failed to compile valid program.")
+                results["failed"] += 1
+                os.remove("server.s")
+                continue
+
+            # Link both.
+            linkServerAndClient = subprocess.run(["gcc", "client.s", "server.s", "-o", out_exe], capture_output=True)
+            if linkServerAndClient.returncode != 0:
+                print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to compile valid program.")
+                results["failed"] += 1
+                os.remove("server.s")
+                os.remove("client.s")
+                continue
+
+            # Execute generated program.
+            executeProgram(expectedReturnCode, testFilePath + " as server")
+
+            os.remove("server.s")
+            os.remove("client.s")
+
+    print(f"\n")
+
+    return results
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="calcic-tester")
+    parser.add_argument("compiler", 
+                        help="Path to the compiler executable")
+    parser.add_argument("tests", 
+                        help="Path to the test folder. It can be a folder containing subfolders of tests.")
+    
+    args = parser.parse_args()
+    
+    if not os.path.exists(args.compiler):
+        print(f"Error: Compiler not found at {args.compiler}")
+        sys.exit(1)
+
+    runTestsFromInputRoute(args.compiler, args.tests)
