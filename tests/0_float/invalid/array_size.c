@@ -1,5 +1,6 @@
 /* Error: Array size must be integer */
-void test() {
+int main() {
     float f = 10.0f;
-    int arr[f]; 
+    int arr[f];
+    return 0;
 }

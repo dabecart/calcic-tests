@@ -1,5 +1,6 @@
 /* Error: Bitwise OR (|) invalid for floats */
-void test() {
+int main() {
     float a = 1.0f;
     int b = 1 | a;
+    return 0;
 }

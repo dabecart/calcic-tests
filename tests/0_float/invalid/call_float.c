@@ -1,5 +1,6 @@
 /* Error: Called object 'f' is not a function */
-void test() {
+int main() {
     float f = 1.0f;
     f();
+    return 0;
 }

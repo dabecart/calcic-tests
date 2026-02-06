@@ -1,4 +1,5 @@
 /* Error: Too many decimal points */
-void test() {
+int main() {
     float f = 1.0.5;
+    return 0;
 }

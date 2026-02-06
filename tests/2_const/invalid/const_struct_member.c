@@ -11,3 +11,7 @@ void test() {
     // ERROR: Assignment of read-only member 'value'
     d.value = 200;
 }
+
+int main() {
+    return 0;
+}

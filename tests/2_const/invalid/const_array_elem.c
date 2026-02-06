@@ -5,3 +5,7 @@ void test() {
     // ERROR: Assignment of read-only location 'arr[1]'
     arr[1] = 5;
 }
+
+int main() {
+    return 0;
+}

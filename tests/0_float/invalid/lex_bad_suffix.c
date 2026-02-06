@@ -1,4 +1,5 @@
 /* Error: Invalid suffix 'x' on floating constant */
-void test() {
+int main() {
     float f = 1.0x;
+    return 0;
 }

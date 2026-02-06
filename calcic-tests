@@ -17,16 +17,20 @@ def getExpectedExitCode(filePath):
             return int(match.group(1))
     return None
 
-def executeProgram(expectedReturnCode: int, testPath: str) -> bool:
+def executeProgram(expectedReturnCode: int, testPath: str, printOutput: bool) -> bool:
     ret = False
     try:
-        returnCode = subprocess.run([out_exe], capture_output=True)
+        subpRet = subprocess.run([out_exe], capture_output=True)
         
-        if returnCode.returncode == expectedReturnCode:
-            print(f"[\033[92mPASS\033[0m] {testPath}: Program returned {returnCode.returncode} as expected.")
+        if subpRet.returncode == expectedReturnCode:
+            print(f"[\033[92mPASS\033[0m] {testPath}: Program returned {subpRet.returncode} as expected.")
             ret = True
         else:
-            print(f"[\033[91mFAIL\033[0m] {testPath}: Expected {expectedReturnCode}, but got {returnCode.returncode}.")
+            print(f"[\033[91mFAIL\033[0m] {testPath}: Expected {expectedReturnCode}, but got {subpRet.returncode}.")
+    
+        if printOutput:
+            print(f"Output:\n{subpRet.stderr.decode()}")
+
     finally:
         # Cleanup generated executable.
         if os.path.exists(out_exe):
@@ -40,12 +44,12 @@ def getInnerTestsFolder(inputDir) -> tuple[str|None, str|None]:
     return (validDir if os.path.exists(validDir) else None, 
             invalidDir if os.path.exists(invalidDir) else None)
 
-def runTestsFromInputRoute(compilerPath, inputFolder):
+def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: int):
     validDir, invalidDir = getInnerTestsFolder(inputFolder)
 
     if validDir and invalidDir:
         # Running a folder with the valid and invalid folders.
-        results = runTestFolder(compilerPath, validDir, invalidDir)
+        results = runTestFolder(compilerPath, validDir, invalidDir, verboseLevel)
 
     elif not validDir and not invalidDir:
         # Running a folder containing the subtests. Iterate over the inner folders.
@@ -60,7 +64,7 @@ def runTestsFromInputRoute(compilerPath, inputFolder):
             if not validDir or not invalidDir:
                 continue
 
-            innerResults = runTestFolder(compilerPath, validDir, invalidDir)
+            innerResults = runTestFolder(compilerPath, validDir, invalidDir, verboseLevel)
             results['passed'] += innerResults['passed']
             results['failed'] += innerResults['failed']
             results['skipped'] += innerResults['skipped']
@@ -82,12 +86,12 @@ def runTestsFromInputRoute(compilerPath, inputFolder):
 
     sys.exit(retCode)
 
-def runTestFolder(compilerPath: str, validDir: str, invalidDir: str) -> dict[str, int]:
+def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLevel: int) -> dict[str, int]:
     results = dict(passed = 0, failed = 0, skipped = 0)
 
     # Test invalid programs (should fail compilation).
     print(f"--- Running Invalid Tests ---")
-    for testFilePath in os.listdir(invalidDir):
+    for testFilePath in sorted(os.listdir(invalidDir)):
         if testFilePath.endswith('.c'):
             path = os.path.join(invalidDir, testFilePath)
             res = subprocess.run([compilerPath, path, "-o", out_exe], capture_output=True)
@@ -96,14 +100,17 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str) -> dict[str
                 print(f"[\033[92mPASS\033[0m] {testFilePath}: Compiler correctly rejected invalid program.")
                 results["passed"] += 1
             else:
-                print(f"[\033[91mFAIL\033[0m] {testFilePath}: Compiler accepted an invalid program (returned 0).")
+                print(f"[\033[91mFAIL\033[0m] {testFilePath}: Compiler accepted an invalid program.")
                 results["failed"] += 1
                 if os.path.exists(out_exe):
                     os.remove(out_exe)
 
+            if verboseLevel > 0:
+                print(f"Output:\n{res.stderr.decode()}")
+
     # Test valid programs (compile and run).
     print(f"\n--- Running Valid Tests ---")
-    for testFilePath in os.listdir(validDir):
+    for testFilePath in sorted(os.listdir(validDir)):
         if testFilePath.endswith('.c'):
             path = os.path.join(validDir, testFilePath)
             expectedReturnCode = getExpectedExitCode(path)
@@ -122,7 +129,7 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str) -> dict[str
                 continue
 
             # Execute generated program.
-            executeProgram(expectedReturnCode, testFilePath)
+            executeProgram(expectedReturnCode, testFilePath, verboseLevel > 0)
 
         elif os.path.isdir(folderPath := os.path.join(validDir, testFilePath)):
             serverPath = None
@@ -175,7 +182,7 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str) -> dict[str
                 continue
 
             # Execute generated program.
-            goodExecution = executeProgram(expectedReturnCode, testFilePath + " as client")
+            goodExecution = executeProgram(expectedReturnCode, testFilePath + " as client", verboseLevel > 0)
             if goodExecution:
                 results["passed"] += 1
             else:
@@ -209,7 +216,7 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str) -> dict[str
                 continue
 
             # Execute generated program.
-            executeProgram(expectedReturnCode, testFilePath + " as server")
+            executeProgram(expectedReturnCode, testFilePath + " as server", verboseLevel > 0)
 
             os.remove("server.s")
             os.remove("client.s")
@@ -224,11 +231,14 @@ if __name__ == "__main__":
                         help="Path to the compiler executable")
     parser.add_argument("tests", 
                         help="Path to the test folder. It can be a folder containing subfolders of tests.")
-    
+    parser.add_argument("-v", "--verbose",
+                        action="count", default=0,
+                        help="Print output from the compiler.")
+
     args = parser.parse_args()
     
     if not os.path.exists(args.compiler):
         print(f"Error: Compiler not found at {args.compiler}")
         sys.exit(1)
 
-    runTestsFromInputRoute(args.compiler, args.tests)
+    runTestsFromInputRoute(args.compiler, args.tests, args.verbose)

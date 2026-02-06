@@ -1,4 +1,5 @@
 /* Error: Hex float requires exponent (p) */
-void test() {
+int main() {
     float f = 0x1.2; 
+    return 0;
 }

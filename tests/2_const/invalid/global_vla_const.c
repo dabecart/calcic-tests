@@ -5,3 +5,7 @@ const int SIZE = 10;
 int arr[SIZE]; 
 
 void test() {}
+
+int main() {
+    return 0;
+}

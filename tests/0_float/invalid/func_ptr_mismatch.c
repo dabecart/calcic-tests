@@ -1,5 +1,6 @@
 /* Error: Incompatible function pointer assignment */
 void func(int x) {}
-void test() {
+int main() {
     void (*fp)(float) = func; 
+    return 0;
 }
