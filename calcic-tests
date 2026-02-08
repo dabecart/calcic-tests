@@ -129,7 +129,11 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
                 continue
 
             # Execute generated program.
-            executeProgram(expectedReturnCode, testFilePath, verboseLevel > 0)
+            goodExecution = executeProgram(expectedReturnCode, testFilePath, verboseLevel > 0)
+            if goodExecution:
+                results["passed"] += 1
+            else:
+                results["failed"] += 1
 
         elif os.path.isdir(folderPath := os.path.join(validDir, testFilePath)):
             serverPath = None
