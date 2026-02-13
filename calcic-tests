@@ -44,12 +44,12 @@ def getInnerTestsFolder(inputDir) -> tuple[str|None, str|None]:
     return (validDir if os.path.exists(validDir) else None, 
             invalidDir if os.path.exists(invalidDir) else None)
 
-def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: int):
+def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: int, optimize: bool):
     validDir, invalidDir = getInnerTestsFolder(inputFolder)
 
     if validDir and invalidDir:
         # Running a folder with the valid and invalid folders.
-        results = runTestFolder(compilerPath, validDir, invalidDir, verboseLevel)
+        results = runTestFolder(compilerPath, validDir, invalidDir, verboseLevel, optimize)
 
     elif not validDir and not invalidDir:
         # Running a folder containing the subtests. Iterate over the inner folders.
@@ -64,7 +64,7 @@ def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: in
             if not validDir or not invalidDir:
                 continue
 
-            innerResults = runTestFolder(compilerPath, validDir, invalidDir, verboseLevel)
+            innerResults = runTestFolder(compilerPath, validDir, invalidDir, verboseLevel, optimize)
             results['passed'] += innerResults['passed']
             results['failed'] += innerResults['failed']
             results['skipped'] += innerResults['skipped']
@@ -86,7 +86,7 @@ def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: in
 
     sys.exit(retCode)
 
-def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLevel: int) -> dict[str, int]:
+def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLevel: int, optimize: bool) -> dict[str, int]:
     results = dict(passed = 0, failed = 0, skipped = 0)
 
     # Test invalid programs (should fail compilation).
@@ -94,7 +94,10 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
     for testFilePath in sorted(os.listdir(invalidDir)):
         if testFilePath.endswith('.c'):
             path = os.path.join(invalidDir, testFilePath)
-            res = subprocess.run([compilerPath, path, "-o", out_exe], capture_output=True)
+            cmd = [compilerPath, path, "-o", out_exe]
+            if optimize:
+                cmd += ["-O"]
+            res = subprocess.run(cmd, capture_output=True)
             
             if res.returncode != 0:
                 print(f"[\033[92mPASS\033[0m] {testFilePath}: Compiler correctly rejected invalid program.")
@@ -121,8 +124,11 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
                 continue
 
             # Compile.
-            compileCFile = subprocess.run([compilerPath, path, "-o", out_exe], capture_output=True)
-            
+            cmd = [compilerPath, path, "-o", out_exe]
+            if optimize:
+                cmd += ["-O"]
+            compileCFile = subprocess.run(cmd, capture_output=True)
+
             if compileCFile.returncode != 0:
                 print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to compile valid program.")
                 results["failed"] += 1
@@ -162,7 +168,10 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
                 continue
 
             # Compile with calcic the client.
-            compileCalcic = subprocess.run([compilerPath, clientPath, "-S", "-o", "client.s"], capture_output=True)
+            cmd = [compilerPath, clientPath, "-S", "-o", "client.s"]
+            if optimize:
+                cmd += ["-O"]
+            compileCalcic = subprocess.run(cmd, capture_output=True)
             if compileCalcic.returncode != 0:
                 print(f"[\033[91mFAIL\033[0m] {clientPath}: Failed to compile valid program.")
                 results["failed"] += 1
@@ -196,7 +205,10 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
             os.remove("client.s")
 
             # Compile with calcic the server.
-            compileCalcic = subprocess.run([compilerPath, serverPath, "-S", "-o", "server.s"], capture_output=True)
+            cmd = [compilerPath, serverPath, "-S", "-o", "server.s"]
+            if optimize:
+                cmd += ["-O"]
+            compileCalcic = subprocess.run(cmd, capture_output=True)
             if compileCalcic.returncode != 0:
                 print(f"[\033[91mFAIL\033[0m] {serverPath}: Failed to compile valid program.")
                 results["failed"] += 1
@@ -238,6 +250,9 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbose",
                         action="count", default=0,
                         help="Print output from the compiler.")
+    parser.add_argument("-O", "--optimize",
+                        action="store_true",
+                        help="Run tests with optimizations.")
 
     args = parser.parse_args()
     
@@ -245,4 +260,4 @@ if __name__ == "__main__":
         print(f"Error: Compiler not found at {args.compiler}")
         sys.exit(1)
 
-    runTestsFromInputRoute(args.compiler, args.tests, args.verbose)
+    runTestsFromInputRoute(args.compiler, args.tests, args.verbose, args.optimize)
