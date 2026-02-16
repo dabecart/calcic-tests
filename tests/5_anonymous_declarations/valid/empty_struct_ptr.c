@@ -1,5 +1,4 @@
 // Exit code: 0
-// Opaque pointer pattern
 typedef struct Hidden * Handle;
 struct Hidden { int id; };
 
