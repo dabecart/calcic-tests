@@ -49,6 +49,7 @@ def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: in
 
     if validDir and invalidDir:
         # Running a folder with the valid and invalid folders.
+        print(f"--- {inputFolder} ---")
         results = runTestFolder(compilerPath, validDir, invalidDir, verboseLevel, optimize)
 
     elif not validDir and not invalidDir:
@@ -64,6 +65,7 @@ def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: in
             if not validDir or not invalidDir:
                 continue
 
+            print(f"--- {innerPath} ---")
             innerResults = runTestFolder(compilerPath, validDir, invalidDir, verboseLevel, optimize)
             results['passed'] += innerResults['passed']
             results['failed'] += innerResults['failed']
@@ -131,6 +133,9 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
 
             if compileCFile.returncode != 0:
                 print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to compile valid program.")
+                if verboseLevel > 0:
+                    print(f"Output:\n{compileCFile.stderr.decode()}")
+                
                 results["failed"] += 1
                 continue
 
@@ -167,31 +172,40 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
                 results["skipped"] += 1
                 continue
 
-            # Compile with calcic the client.
-            cmd = [compilerPath, clientPath, "-S", "-o", "client.s"]
+            # Compile the client with calcic.
+            cmd = [compilerPath, clientPath, "-c", "-o", "client.o"]
             if optimize:
                 cmd += ["-O"]
             compileCalcic = subprocess.run(cmd, capture_output=True)
             if compileCalcic.returncode != 0:
-                print(f"[\033[91mFAIL\033[0m] {clientPath}: Failed to compile valid program.")
+                print(f"[\033[91mFAIL\033[0m] {clientPath}: Failed to compile the client with calcic.")
+                if verboseLevel > 0:
+                    print(f"Output:\n{compileCalcic.stderr.decode()}")
+
                 results["failed"] += 1
                 continue
 
-            # Compile with gcc the server.
-            compileGCC = subprocess.run(["gcc", serverPath, "-S", "-o", "server.s"], capture_output=True)
+            # Compile the server with gcc.
+            compileGCC = subprocess.run(["gcc", serverPath, "-c", "-o", "server.o"], capture_output=True)
             if compileGCC.returncode != 0:
-                print(f"[\033[91mFAIL\033[0m] {serverPath}: Failed to compile valid program.")
+                print(f"[\033[91mFAIL\033[0m] {serverPath}: Failed to compile the server with gcc.")
+                if verboseLevel > 0:
+                    print(f"Output:\n{compileGCC.stderr.decode()}")
+
                 results["failed"] += 1
-                os.remove("client.s")
+                os.remove("client.o")
                 continue
 
             # Link both.
-            linkServerAndClient = subprocess.run(["gcc", "client.s", "server.s", "-o", out_exe], capture_output=True)
+            linkServerAndClient = subprocess.run(["gcc", "client.o", "server.o", "-o", out_exe], capture_output=True)
             if linkServerAndClient.returncode != 0:
-                print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to compile valid program.")
+                print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to link.")
+                if verboseLevel > 0:
+                    print(f"Output:\n{linkServerAndClient.stderr.decode()}")
+
                 results["failed"] += 1
-                os.remove("server.s")
-                os.remove("client.s")
+                os.remove("server.o")
+                os.remove("client.o")
                 continue
 
             # Execute generated program.
@@ -201,41 +215,50 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
             else:
                 results["failed"] += 1
             
-            os.remove("server.s")
-            os.remove("client.s")
+            os.remove("server.o")
+            os.remove("client.o")
 
-            # Compile with calcic the server.
-            cmd = [compilerPath, serverPath, "-S", "-o", "server.s"]
+            # Compile the server with calcic.
+            cmd = [compilerPath, serverPath, "-c", "-o", "server.o"]
             if optimize:
                 cmd += ["-O"]
             compileCalcic = subprocess.run(cmd, capture_output=True)
             if compileCalcic.returncode != 0:
-                print(f"[\033[91mFAIL\033[0m] {serverPath}: Failed to compile valid program.")
+                print(f"[\033[91mFAIL\033[0m] {serverPath}: Failed to compile the server with calcic.")
+                if verboseLevel > 0:
+                    print(f"Output:\n{compileCalcic.stderr.decode()}")
+
                 results["failed"] += 1
                 continue
 
-            # Compile with gcc the server.
-            compileGCC = subprocess.run(["gcc", clientPath, "-S", "-o", "client.s"], capture_output=True)
+            # Compile the client with gcc.
+            compileGCC = subprocess.run(["gcc", clientPath, "-c", "-o", "client.o"], capture_output=True)
             if compileGCC.returncode != 0:
-                print(f"[\033[91mFAIL\033[0m] {clientPath}: Failed to compile valid program.")
+                print(f"[\033[91mFAIL\033[0m] {clientPath}: Failed to compile the client with gcc.")
+                if verboseLevel > 0:
+                    print(f"Output:\n{compileGCC.stderr.decode()}")
+
                 results["failed"] += 1
-                os.remove("server.s")
+                os.remove("server.o")
                 continue
 
             # Link both.
-            linkServerAndClient = subprocess.run(["gcc", "client.s", "server.s", "-o", out_exe], capture_output=True)
+            linkServerAndClient = subprocess.run(["gcc", "client.o", "server.o", "-o", out_exe], capture_output=True)
             if linkServerAndClient.returncode != 0:
-                print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to compile valid program.")
+                print(f"[\033[91mFAIL\033[0m] {testFilePath}: Failed to link.")
+                if verboseLevel > 0:
+                    print(f"Output:\n{linkServerAndClient.stderr.decode()}")
+
                 results["failed"] += 1
-                os.remove("server.s")
-                os.remove("client.s")
+                os.remove("server.o")
+                os.remove("client.o")
                 continue
 
             # Execute generated program.
             executeProgram(expectedReturnCode, testFilePath + " as server", verboseLevel > 0)
 
-            os.remove("server.s")
-            os.remove("client.s")
+            os.remove("server.o")
+            os.remove("client.o")
 
     print(f"\n")
 

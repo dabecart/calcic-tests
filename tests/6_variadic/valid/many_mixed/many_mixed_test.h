@@ -1,0 +1,1 @@
+int check(int c, ...);
