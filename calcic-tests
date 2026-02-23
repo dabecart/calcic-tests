@@ -56,7 +56,7 @@ def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: in
         # Running a folder containing the subtests. Iterate over the inner folders.
         results = dict(passed = 0, failed = 0, skipped = 0)
         execCount = 0
-        for innerName in os.listdir(inputFolder):
+        for innerName in sorted(os.listdir(inputFolder)):
             innerPath = os.path.join(inputFolder, innerName)
             if not os.path.isdir(innerPath):
                 continue
