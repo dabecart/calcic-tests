@@ -47,7 +47,7 @@ def getInnerTestsFolder(inputDir) -> tuple[str|None, str|None]:
 def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: int, optimize: bool):
     validDir, invalidDir = getInnerTestsFolder(inputFolder)
 
-    if validDir and invalidDir:
+    if validDir or invalidDir:
         # Running a folder with the valid and invalid folders.
         print(f"--- {inputFolder} ---")
         results = runTestFolder(compilerPath, validDir, invalidDir, verboseLevel, optimize)
@@ -62,11 +62,13 @@ def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: in
                 continue
 
             validDir, invalidDir = getInnerTestsFolder(innerPath)
-            if not validDir or not invalidDir:
+            if not validDir and not invalidDir:
                 continue
 
             print(f"--- {innerPath} ---")
             innerResults = runTestFolder(compilerPath, validDir, invalidDir, verboseLevel, optimize)
+            print("\n")
+
             results['passed'] += innerResults['passed']
             results['failed'] += innerResults['failed']
             results['skipped'] += innerResults['skipped']
@@ -88,14 +90,13 @@ def runTestsFromInputRoute(compilerPath: str, inputFolder: str, verboseLevel: in
 
     sys.exit(retCode)
 
-def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLevel: int, optimize: bool) -> dict[str, int]:
-    results = dict(passed = 0, failed = 0, skipped = 0)
-
+def runInvalidTests(compilerPath: str, folderPath: str, results: dict, 
+                    verboseLevel: int, optimize: bool):
     # Test invalid programs (should fail compilation).
     print(f"--- Running Invalid Tests ---")
-    for testFilePath in sorted(os.listdir(invalidDir)):
+    for testFilePath in sorted(os.listdir(folderPath)):
         if testFilePath.endswith('.c'):
-            path = os.path.join(invalidDir, testFilePath)
+            path = os.path.join(folderPath, testFilePath)
             cmd = [compilerPath, path, "-o", out_exe]
             if optimize:
                 cmd += ["-O"]
@@ -113,11 +114,13 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
             if verboseLevel > 0:
                 print(f"Output:\n{res.stderr.decode()}")
 
+def runValidTests(compilerPath: str, folderPath: str, results: dict, 
+                    verboseLevel: int, optimize: bool):
     # Test valid programs (compile and run).
     print(f"\n--- Running Valid Tests ---")
-    for testFilePath in sorted(os.listdir(validDir)):
+    for testFilePath in sorted(os.listdir(folderPath)):
         if testFilePath.endswith('.c'):
-            path = os.path.join(validDir, testFilePath)
+            path = os.path.join(folderPath, testFilePath)
             expectedReturnCode = getExpectedExitCode(path)
             
             if expectedReturnCode is None:
@@ -146,16 +149,16 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
             else:
                 results["failed"] += 1
 
-        elif os.path.isdir(folderPath := os.path.join(validDir, testFilePath)):
+        elif os.path.isdir(twoPartTestFolder := os.path.join(folderPath, testFilePath)):
             serverPath = None
             clientPath = None
             expectedReturnCode = None
-            for file in os.listdir(folderPath):
+            for file in os.listdir(twoPartTestFolder):
                 if file.endswith("client.c"):
-                    clientPath = os.path.join(folderPath, file)
+                    clientPath = os.path.join(twoPartTestFolder, file)
                     expectedReturnCode = getExpectedExitCode(clientPath)
                 elif file.endswith("server.c"):
-                    serverPath = os.path.join(folderPath, file)
+                    serverPath = os.path.join(twoPartTestFolder, file)
 
             if serverPath is None:
                 print(f"[SKIP] {testFilePath}: No server file found.")
@@ -260,7 +263,15 @@ def runTestFolder(compilerPath: str, validDir: str, invalidDir: str, verboseLeve
             os.remove("server.o")
             os.remove("client.o")
 
-    print(f"\n")
+def runTestFolder(compilerPath: str, validDir: str|None, invalidDir: str|None, 
+                  verboseLevel: int, optimize: bool) -> dict[str, int]:
+    results = dict(passed = 0, failed = 0, skipped = 0)
+
+    if invalidDir is not None:
+        runInvalidTests(compilerPath, invalidDir, results, verboseLevel, optimize)
+
+    if validDir is not None:
+        runValidTests(compilerPath, validDir, results, verboseLevel, optimize)
 
     return results
 
