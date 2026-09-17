@@ -6,8 +6,6 @@ import subprocess
 import re
 import sys
 
-out_exe = "./test_prog.bin"
-
 def getExpectedExitCode(filePath):
     # Parses the 'Exit code: x' line from the top of the .c file.
     with open(filePath, 'r') as f:
@@ -17,40 +15,51 @@ def getExpectedExitCode(filePath):
             return int(match.group(1))
     return None
 
-def executeProgram(expectedReturnCode: int, testPath: str, workDirectory: str, printOutput: bool) -> bool:
+def executeProgram(testPath: str, binaryPath: str, vhdlDirectory: str, printOutput: bool) -> bool:
     ret = False
     try:
         # Run the simulation.
+        baseFolder = os.path.dirname(os.path.abspath(__file__))
+        linkerRoute =  os.path.join(baseFolder, "run_fpga.tcl")
+        
         cmd = ['vsim',
                '-c',
                '-voptargs=+acc',
-               f'-gFILE_PATH={out_exe}',
+               f'-gFILE_PATH={binaryPath}',
                'work.cpu_test',
-               '-do', './run_fpga.tcl'
+               '-do', os.path.abspath(linkerRoute)
             ]
 
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=workDirectory, text=True, check=True)
+        if printOutput:
+            cmdStr = " ".join(cmd)
+            print(f"Command:\n{cmdStr}")
 
-        # Extract signal value from output
-        match = re.search(r"REGISTER_VALUE_OUTPUT:\s*([0-9a-fA-FzxZX]+)", result.stdout)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=vhdlDirectory, text=True, check=True)
+
+        # Fetch R0 value.
+        match = re.search(r"R0:\s*([0-9a-fA-FzxZX]+)", result.stdout)
         if match:
-            reg_value = match.group(1)
+            r0Val: int = int(match.group(1))
         else:
             raise RuntimeError("Failed to capture register value from simulation output.")
-        
-        if reg_value == expectedReturnCode:
-            print(f"[\033[92mPASS\033[0m] {testPath}: Program returned {reg_value} as expected.")
+
+        # Fetch CPUState value.
+        match = re.search(r"CPU_STATE:\s*(\w+)", result.stdout)
+        if match:
+            cpuState: str = match.group(1)
+        else:
+            raise RuntimeError("Failed to capture register value from simulation output.")
+
+        if r0Val == 0 and cpuState == "CPU_BRK":
+            print(f"[\033[92mPASS\033[0m] {testPath}: Program returned {r0Val} as expected.")
             ret = True
         else:
-            print(f"[\033[91mFAIL\033[0m] {testPath}: Expected {expectedReturnCode}, but got {reg_value}.")
+            print(f"[\033[91mFAIL\033[0m] {testPath}. R0 = {r0Val}. CPU state = {cpuState}")
     
-        if printOutput:
-            print(f"Output:\n{result.stderr}")
-
     finally:
-        # Cleanup generated executable.
-        if os.path.exists(out_exe):
-            os.remove(out_exe)
+        # Cleanup generated binary.
+        if os.path.exists(binaryPath):
+            os.remove(binaryPath)
     return ret
 
 def getInnerTestsFolder(inputDir) -> str|None:
@@ -75,31 +84,21 @@ def runTestsFromInputRoute(compilerPath: str, vhdlPath: str, inputFolder: str, v
     sys.exit(retCode)
 
 def runTests(compilerPath: str, vhdlPath: str, folderPath: str, verboseLevel: int, optimize: bool) -> dict[str, int]:
-    results = dict(passed = 0, failed = 0, skipped = 0)
     print(f"\n--- Running Valid Tests ---")
-
-    # Create a work project. This creates the folder vhdlPath/work.
-    subprocess.run(["vlib", "work"], check=True, cwd=vhdlPath)
-
-    workDirectory = os.path.join(vhdlPath, "work")
+    results: dict[str, int] = dict(passed = 0, failed = 0, skipped = 0)
 
     # Run the makefile inside the work directory.
-    subprocess.run(["make"], check=True, cwd=workDirectory)
+    subprocess.run(["make"], check=True, cwd=vhdlPath)
 
     for testFilePath in sorted(os.listdir(folderPath)):
         if not testFilePath.endswith('.c'):
             continue
 
-        path = os.path.join(folderPath, testFilePath)
-        expectedReturnCode = getExpectedExitCode(path)
-        
-        if expectedReturnCode is None:
-            print(f"[\033[93mSKIP\033[0m] {testFilePath}: No 'Exit code: x' header found.")
-            results["skipped"] += 1
-            continue
+        inputFilePath = os.path.join(folderPath, testFilePath)
+        binaryFilePath = os.path.join(folderPath, f"{testFilePath}.bin")
 
         # Compile the binary file.
-        cmd = [compilerPath, path, "-o", out_exe, "-m", "calci32"]
+        cmd = [compilerPath, inputFilePath, "-o", binaryFilePath, "-m", "calci32"]
         if optimize:
             cmd += ["-O"]
         compileCFile = subprocess.run(cmd, capture_output=True)
@@ -113,7 +112,7 @@ def runTests(compilerPath: str, vhdlPath: str, folderPath: str, verboseLevel: in
             continue
 
         # Execute generated program.
-        goodExecution = executeProgram(expectedReturnCode, testFilePath, workDirectory, verboseLevel > 0)
+        goodExecution = executeProgram(testFilePath, os.path.abspath(binaryFilePath), vhdlPath, verboseLevel > 0)
         if goodExecution:
             results["passed"] += 1
         else:
