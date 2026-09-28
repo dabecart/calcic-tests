@@ -1,18 +1,16 @@
-#include <stdint.h>
-
 struct Point {
-    int32_t x;
-    int32_t y;
+    int x;
+    int y;
 };
 
 struct Nested {
     struct Point p;
-    int32_t z;
+    int z;
 };
 
 union Data {
-    uint32_t i;
-    uint8_t c[4];
+    unsigned int i;
+    unsigned char c[4];
 };
 
 int main(void) {
