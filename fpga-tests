@@ -33,6 +33,7 @@ def executeProgram(vhdlDirectory: str, info: TestInfo) -> bool:
         
         cmd = ['vsim',
                '-c',
+               '-t', '1ps',
                '-voptargs=+acc',
                f'-gFILE_PATH={info.binaryPath}',
                'work.cpu_test',
