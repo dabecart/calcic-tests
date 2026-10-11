@@ -103,15 +103,19 @@ def runTests(compilerPath: str, vhdlPath: str, folderPath: str, verboseLevel: in
     sourceFiles: list[str] = []
     for root, _, files in os.walk(folderPath):
         sourceFiles.extend(
-            [os.path.join(root, f) for f in files if f.endswith(".c")]
+            [os.path.join(root, f) for f in files if f.endswith((".c", ".s"))]
         )
 
     for testNumber, inputFilePath in enumerate(sorted(sourceFiles)):
         binaryFilePath = os.path.abspath(os.path.join(folderPath, "out.bin"))
 
-        # Compile the binary for x64 using gcc to extract the return code.
-        subprocess.run(["gcc", inputFilePath, "-o", binaryFilePath], check=True)
-        expectedReturn = subprocess.run([binaryFilePath]).returncode
+        if inputFilePath.endswith(".c"):
+            # Compile the binary for x64 using gcc to extract the return code.
+            subprocess.run(["gcc", inputFilePath, "-o", binaryFilePath], check=True)
+            expectedReturn = subprocess.run([binaryFilePath]).returncode
+        else:
+            # Assembly programs are expected to return 0.
+            expectedReturn = 0
 
         # Compile the binary file for the calci32.
         cmd = [compilerPath, inputFilePath, "-o", binaryFilePath, "-m", "calci32"]

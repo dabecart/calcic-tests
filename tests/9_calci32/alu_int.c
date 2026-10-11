@@ -1,9 +1,12 @@
 #include <limits.h>
 
-// #define DO_LONG_TESTS
+#define DO_INT_TESTS
+#define DO_LONG_TESTS
 // #define DO_LONGLONG_TESTS
 
 int main(void) {
+
+#ifdef DO_INT_TESTS
     // ========================================================================
     // 1. char 
     // ========================================================================
@@ -262,6 +265,7 @@ int main(void) {
         a = 10; if ((a <<= 1) != 20) return 188;
         a = 10; if ((a >>= 1) != 5) return 189;
     }
+#endif // DO_INT_TESTS
 
 #ifdef DO_LONG_TESTS
     // ========================================================================
