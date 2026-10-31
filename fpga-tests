@@ -35,16 +35,20 @@ def executeProgram(vhdlDirectory: str, info: TestInfo) -> bool:
                '-c',
                '-t', '1ps',
                '-voptargs=+acc',
-               f'-gFILE_PATH={info.binaryPath}',
+               f'-gRAM_FILE_PATH={info.binaryPath}', # Code definitions.
                'work.cpu_test',
                '-do', os.path.abspath(linkerRoute)
             ]
 
         print(f"[{info.testNumber}/{info.totalTestCount}] Running {info.testPath}. Expecting {info.expectedReturn}.")
-        # cmdStr = " ".join(cmd)
-        # print(cmdStr)
 
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=vhdlDirectory, text=True, check=True)
+
+        # A fatal error happened.
+        match = re.search(r"Fatal: ", result.stdout)
+        if match:
+            cmdStr = " ".join(cmd)
+            raise RuntimeError(f"A fatal error happened!\nCommand: {cmdStr}\nTrace:\n{result.stdout}")
 
         # Fetch R0 value.
         match = re.search(r"R0:\s*([0-9a-fA-FzxZX]+)", result.stdout)
