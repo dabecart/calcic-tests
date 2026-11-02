@@ -20,7 +20,7 @@ static struct S make(unsigned a, int b, unsigned c)
 static struct S pick(int cond, struct S x, struct S y) { return cond ? x : y; }
 static int get_b(const struct S *p) { return p->b; }
 static unsigned get_a(struct S s) { return s.a; }
-static _Bool is_big(struct S s) { return s.a > 15; }
+static int is_big(struct S s) { return s.a > 15; }
 static struct S chain(struct S s) { return make(s.a + 1, s.b * 2, s.c); }
 static struct Big make_big(int k)
 {
