@@ -2,9 +2,7 @@
 #include "abi_union_member_common.h"
 
 struct S srv_global_A = {
-    .u.bf.a = 31,
-    .u.bf.b = 2047,
-    .u.bf.c = 0xFFFF,
+    .u = {.bf = {.a = 31, .b = 2047, .c = 0xFFFF }},
     .t = -2048
 };
 struct S srv_global_in;

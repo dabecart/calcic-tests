@@ -259,7 +259,11 @@ def runValidTests(compilerPath: str, folderPath: str, results: dict,
                 continue
 
             # Execute generated program.
-            executeProgram(expectedReturnCode, testFilePath + " as server", verboseLevel > 0)
+            goodExecution = executeProgram(expectedReturnCode, testFilePath + " as server", verboseLevel > 0)
+            if goodExecution:
+                results["passed"] += 1
+            else:
+                results["failed"] += 1
 
             os.remove("server.o")
             os.remove("client.o")

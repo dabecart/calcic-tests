@@ -3,8 +3,7 @@
 
 struct S srv_global_A = {
     .p = 9,
-    .in.x = 33,
-    .in.y = -512,
+    .in = {.x = 33, .y = -512},
     .q = 0xFFF
 };
 struct S srv_global_in;
